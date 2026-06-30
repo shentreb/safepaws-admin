@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>SafePaws Admin</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#16a34a">
+<style>
+  body{font-family:system-ui;background:#111827;color:#e5e7eb;margin:0;padding:20px}
+ .card{background:#1f2937;padding:16px;border-radius:16px;box-shadow:0 4px 12px rgba(0,0,0,.3);margin-bottom:12px}
+  input,button,select{width:100%;padding:12px;margin-top:8px;border:1px solid #374151;border-radius:10px;font-size:14px;background:#374151;color:#fff;box-sizing:border-box}
+  button{background:#16a34a;border:0;cursor:pointer;font-weight:700}
+  button.danger{background:#dc2626}
+  img{max-width:200px;border-radius:8px;margin-top:8px;cursor:pointer}
+ .driver{border-left:5px solid #f59e0b}
+ .driver.approved{border-left:5px solid #16a34a}
+ .driver.rejected{border-left:5px solid #dc2626}
+ .row{display:flex;gap:8px;flex-wrap:wrap}
+ .row > *{flex:1}
+ .tabs{display:flex;gap:8px;margin-bottom:16px}
+ .tab{padding:12px 16px;background:#374151;border-radius:10px;cursor:pointer;font-weight:700}
+ .tab.active{background:#16a34a}
+ .stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px}
+ .stat-card{background:#0f172a;padding:16px;border-radius:12px;text-align:center}
+ .stat-card h3{margin:0;font-size:13px;color:#9ca3af}
+ .stat-card p{margin:8px 0 0 0;font-size:24px;font-weight:700;color:#16a34a}
+</style>
+</head>
+<body>
+<div id="authBox" class="card" style="max-width:400px;margin:40px auto">
+  <h2>SafePaws Admin 🔑</h2>
+  <input id="email" type="email" placeholder="Admin Email">
+  <input id="password" type="password" placeholder="Password">
+  <button id="loginBtn">Sign In</button>
+</div>
+
+<div id="dashBox" style="display:none">
+  <div class="card">
+    <h2>Dashboard 📊</h2>
+    <button id="logoutBtn" class="danger" style="width:auto;float:right">Sign Out</button>
+  </div>
+
+  <div class="tabs">
+    <div class="tab active" onclick="showTab('drivers')">Drivers</div>
+    <div class="tab" onclick="showTab('bookings')">Bookings</div>
+    <div class="tab" onclick="showTab('earnings')">Earnings</div>
+  </div>
+
+  <div id="driversTab">
+    <div class="card">
+      <div class="row">
+        <input id="searchDriver" placeholder="Search name, email, plate...">
+        <select id="filterStatus">
+          <option value="all">All Status</option>
+          <option value="pending">Pending</option>
+          <option value="approved">Approved</option>
+          <option value="rejected">Rejected</option>
+        </select>
+        <button id="downloadDrivers">📥 Download CSV</button>
+      </div>
+    </div>
+    <div id="driversList"></div>
+  </div>
+
+  <div id="bookingsTab" style="display:none">
+    <div class="card">
+      <h3>Live Bookings</h3>
+      <div id="bookingsList"></div>
+    </div>
+  </div>
+
+  <div id="earningsTab" style="display:none">
+    <div class="stats-grid">
+      <div class="stat-card"><h3>Total Revenue Today</h3><p id="revToday">₱0</p></div>
+      <div class="stat-card"><h3>Your 15% Today</h3><p id="earnToday">₱0</p></div>
+      <div class="stat-card"><h3>Your 15% This Month</h3><p id="earnMonth">₱0</p></div>
+      <div class="stat-card"><h3>All-Time Earnings</h3><p id="earnAll">₱0</p></div>
+    </div>
+    <div class="card" style="margin-top:12px">
+      <h3>Earnings Per Date</h3>
+      <input id="datePicker" type="date">
+      <div id="earnPerDate" style="margin-top:12px;font-size:18px;font-weight:700">Select a date</div>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+  import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+  import { getFirestore, collection, onSnapshot, doc, updateDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyBVaqhNCrgDlWGEVjXygszJUdQR_bpG7os",
+    authDomain: "safepaws-batangas.firebaseapp.com",
+    projectId: "safepaws-batangas",
+    storageBucket: "safepaws-batangas.firebasestorage.app",
+    messagingSenderId: "629904615191",
+    appId: "1:629904615191:web:45f7148d65ba61a867f952"
+  };
+  
+  const app = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+  const db = getFirestore(app);
+  const $ = id => document.getElementById(id);
+  
+  const ADMIN_EMAIL = "gabinessheabert@gmail.com"; // <-- PALITAN MO TO
+  const COMMISSION_RATE = 0.15; // 15% sayo
+
+  let allDrivers = [];
+  let allBookings = [];
+
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('sw.js');
+  }
+
+  window.showTab = (tab) => {
+    document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+    document.querySelector(`.tab[onclick="showTab('${tab}')"]`).classList.add('active');
+    $('driversTab').style.display = tab==='drivers'?'block':'none';
+    $('bookingsTab').style.display = tab==='bookings'?'block':'none';
+    $('earningsTab').style.display = tab==='earnings'?'block':'none';
+  }
+
+  onAuthStateChanged(auth, user => {
+    if(!user || user.email!== ADMIN_EMAIL){
+      $('authBox').style.display = 'block';
+      $('dashBox').style.display = 'none';
+      if(user) signOut(auth);
+      return;
+    }
+    $('authBox').style.display = 'none';
+    $('dashBox').style.display = 'block';
+    listenAll();
+  });
+
+  $('loginBtn').onclick = async () => {
+    try { await signInWithEmailAndPassword(auth, $('email').value, $('password').value); }
+    catch(e) { alert(e.message); }
+  };
+  $('logoutBtn').onclick = () => signOut(auth);
+
+  function listenAll() {
+    onSnapshot(collection(db, 'drivers'), snap => {
+      allDrivers = snap.docs.map(d=>({id:d.id,...d.data()}));
+      renderDrivers();
+    });
+    onSnapshot(collection(db, 'bookings'), snap => {
+      allBookings = snap.docs.map(d=>({id:d.id,...d.data()}));
+      renderBookings();
+      calcEarnings();
+    });
+    $('searchDriver').oninput = renderDrivers;
+    $('filterStatus').onchange = renderDrivers;
+    $('downloadDrivers').onclick = downloadCSV;
+    $('datePicker').onchange = calcEarningsPerDate;
+  }
+
+  function renderDrivers() {
+    const search = $('searchDriver').value.toLowerCase();
+    const filter = $('filterStatus').value;
+    const filtered = allDrivers.filter(d=>{
+      const matchSearch = d.name.toLowerCase().includes(search) || d.email.toLowerCase().includes(search) || d.plateNumber.toLowerCase().includes(search);
+      const matchFilter = filter==='all' || d.status===filter;
+      return matchSearch && matchFilter;
+    });
+    $('driversList').innerHTML = filtered.map(v=>`
+      <div class="card driver ${v.status}">
+        <h3>${v.name} - <span style="color:${v.status==='pending'?'#f59e0b':v.status==='approved'?'#16a34a':'#dc2626'}">${v.status.toUpperCase()}</span></h3>
+        <p><b>Email:</b> ${v.email}<br><b>Phone:</b> ${v.phone}<br><b>Plate:</b> ${v.plateNumber}</p>
+        <a href="${v.licenseURL}" target="_blank"><img src="${v.licenseURL}"></a>
+        ${v.status==='pending'? `<div class="row"><button onclick="approveDriver('${v.id}')">✅ Approve</button><button class="danger" onclick="rejectDriver('${v.id}')">❌ Reject</button></div>` : ''}
+      </div>
+    `).join('') || '<div class="card">No drivers found.</div>';
+  }
+
+  function renderBookings() {
+    $('bookingsList').innerHTML = allBookings.map(b=>`
+      <div class="card">
+        <b>${b.email}</b> | ${b.serviceType} | <span style="color:#16a34a">${b.status}</span><br>
+        Driver: ${b.driverEmail||'None'} | Fare: ₱${b.estimatedFare}
+      </div>
+    `).join('') || '<div class="card">No bookings yet.</div>';
+  }
+
+  function calcEarnings() {
+    const now = new Date();
+    const todayStr = now.toISOString().slice(0,10);
+    const monthStr = now.toISOString().slice(0,7);
+    const completed = allBookings.filter(b=>b.status==='completed' && b.completedAt);
+    const revToday = completed.filter(b=>b.completedAt.toDate().toISOString().slice(0,10)===todayStr).reduce((s,b)=>s+b.estimatedFare,0);
+    const revMonth = completed.filter(b=>b.completedAt.toDate().toISOString().slice(0,7)===monthStr).reduce((s,b)=>s+b.estimatedFare,0);
+    const revAll = completed.reduce((s,b)=>s+b.estimatedFare,0);
+    $('revToday').textContent = `₱${revToday.toFixed(2)}`;
+    $('earnToday').textContent = `₱${(revToday*COMMISSION_RATE).toFixed(2)}`;
+    $('earnMonth').textContent = `₱${(revMonth*COMMISSION_RATE).toFixed(2)}`;
+    $('earnAll').textContent = `₱${(revAll*COMMISSION_RATE).toFixed(2)}`;
+  }
+
+  function calcEarningsPerDate() {
+    const date = $('datePicker').value;
+    if(!date) return;
+    const completed = allBookings.filter(b=>b.status==='completed' && b.completedAt && b.completedAt.toDate().toISOString().slice(0,10)===date);
+    const total = completed.reduce((s,b)=>s+b.estimatedFare,0);
+    $('earnPerDate').innerHTML = `Total: ₱${total.toFixed(2)} <br> Your 15%: ₱${(total*COMMISSION_RATE).toFixed(2)}`;
+  }
+
+  function downloadCSV() {
+    let csv = 'Name,Email,Phone,Plate,Status,AppliedAt\n';
+    allDrivers.forEach(d=>{
+      csv += `"${d.name}","${d.email}","${d.phone}","${d.plateNumber}","${d.status}","${d.appliedAt?.toDate().toLocaleDateString()||''}"\n`;
+    });
+    const blob = new Blob([csv],{type:'text/csv'});
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'safepaws_drivers.csv';
+    a.click();
+  }
+
+  window.approveDriver = async (id) => { await updateDoc(doc(db, 'drivers', id), { status: 'approved' }); }
+  window.rejectDriver = async (id) => { await updateDoc(doc(db, 'drivers', id), { status: 'rejected' }); }
+</script>
+</body>
+</html>
