@@ -1,39 +1,16 @@
-# 🛡️ SafePaws Admin V2.2
-
-**Admin Dashboard for SafePaws Pet Services**
-Manages Drivers, Vet Clinics, and Grooming Shops.
-
----
-
+# 🛡️ SafePaws Admin V2.4
+Admin Dashboard for SafePaws Pet Services. Manages Drivers, Vets, and Grooming Shops.
 ## ✨ Features
-- **4-Tab Dashboard**: Drivers | Vets | Groomers | Earnings
-- **Approval System**: Approve/Reject pending accounts with 1 click
-- **Auto Commission Tracking**: 
-    - Delivery: 15% 
-    - Vet: 20% 
-    - Grooming: 25%
-- **Real-time KPIs**: Live revenue total from completed bookings
-- **PWA Ready**: Installable on desktop and mobile
-
----
-
-## 🚀 Setup & Deploy
-
-### Step 1: Firebase Config
-1.  Open `index.html` Line 58
-2.  Paste your `firebaseConfig` 
-3.  Paste your `ADMIN_EMAIL`
-
-### Step 2: Create Admin Account
-1.  Go to `Firebase Console > Authentication > Users`
-2.  Click `Add user`
-3.  Use the same email you put in `ADMIN_EMAIL`
-
-### Step 3: Deploy to GitHub Pages
-1.  Upload all 5 files to repo: `safepaws-admin`
-2.  `Settings > Pages > Source: Deploy from a branch > main`
-3.  `Settings > Visibility > Private` = Important if hard-coded email
-
----
-
+- 4-Tab Dashboard: Drivers | Vets | Groomers | Earnings
+- Approval System: Approve/Reject pending accounts
+- Search: Live search for all 3 tabs
+- Earnings: Auto 15%/20%/25% commission + Date Filter
+- PWA Ready: Installable + Offline + Opening Animation
+## 🚀 Setup
+1.  `index.html Line 111`: Paste `firebaseConfig.apiKey`
+2.  `index.html Line 113`: Paste your `ADMIN_EMAIL`
+3.  Firebase Console > Auth > Add user with that email
+4.  Upload 5 files > Repo Settings > Pages > Deploy from main
 ## 📊 Firestore Collections Required
+`drivers, vets, groomers, bookings, vet_bookings, grooming_bookings`
+Bookings must have `status: "completed"` and `createdAt` field.
