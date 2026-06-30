@@ -3,222 +3,138 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>SafePaws Admin</title>
+<title>SafePaws Admin V2.2</title>
 <link rel="manifest" href="manifest.json">
-<meta name="theme-color" content="#16a34a">
+<meta name="theme-color" content="#0ea5e9">
 <style>
-  body{font-family:system-ui;background:#111827;color:#e5e7eb;margin:0;padding:20px}
- .card{background:#1f2937;padding:16px;border-radius:16px;box-shadow:0 4px 12px rgba(0,0,0,.3);margin-bottom:12px}
-  input,button,select{width:100%;padding:12px;margin-top:8px;border:1px solid #374151;border-radius:10px;font-size:14px;background:#374151;color:#fff;box-sizing:border-box}
-  button{background:#16a34a;border:0;cursor:pointer;font-weight:700}
+  body{font-family:system-ui;background:#0f172a;color:#e5e7eb;margin:0;padding:0 0 70px 0}
+ .page{display:none;padding:16px;max-width:900px;margin:0 auto}
+ .page.active{display:block}
+ .card{background:#1e293b;padding:16px;border-radius:16px;box-shadow:0 4px 12px rgba(0,0,0,.3);margin-bottom:12px}
+  input,button{width:100%;padding:12px;margin-top:8px;border:1px solid #334155;border-radius:10px;font-size:14px;background:#334155;color:#fff;box-sizing:border-box}
+  button{background:#0ea5e9;border:0;cursor:pointer;font-weight:700}
   button.danger{background:#dc2626}
-  img{max-width:200px;border-radius:8px;margin-top:8px;cursor:pointer}
- .driver{border-left:5px solid #f59e0b}
- .driver.approved{border-left:5px solid #16a34a}
- .driver.rejected{border-left:5px solid #dc2626}
- .row{display:flex;gap:8px;flex-wrap:wrap}
- .row > *{flex:1}
- .tabs{display:flex;gap:8px;margin-bottom:16px}
- .tab{padding:12px 16px;background:#374151;border-radius:10px;cursor:pointer;font-weight:700}
- .tab.active{background:#16a34a}
- .stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px}
- .stat-card{background:#0f172a;padding:16px;border-radius:12px;text-align:center}
- .stat-card h3{margin:0;font-size:13px;color:#9ca3af}
- .stat-card p{margin:8px 0 0 0;font-size:24px;font-weight:700;color:#16a34a}
+  button.success{background:#16a34a}
+  table{width:100%;font-size:13px;border-collapse:collapse;margin-top:12px}
+  th,td{padding:10px;text-align:left;border-bottom:1px solid #334155}
+  th{background:#334155}
+  .status{padding:4px 8px;border-radius:6px;font-size:12px;font-weight:700}
+  .pending{background:#f59e0b;color:#111}.approved{background:#16a34a}.rejected{background:#dc2626}
+ .bottom-nav{position:fixed;bottom:0;left:0;right:0;background:#1e293b;display:flex;justify-content:space-around;padding:8px 0;border-top:1px solid #334155}
+ .nav-item{flex:1;text-align:center;font-size:12px;cursor:pointer;padding:8px;color:#94a3b8}
+ .nav-item.active{color:#0ea5e9;font-weight:700;background:#334155}
+  .kpi{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
+  .kpi .card{text-align:center}
+  .kpi h3{margin:0;font-size:24px;color:#0ea5e9}
+  .logout{position:absolute;top:16px;right:16px;width:auto;padding:8px 12px;font-size:12px;background:#dc2626}
 </style>
 </head>
 <body>
-<div id="authBox" class="card" style="max-width:400px;margin:40px auto">
-  <h2>SafePaws Admin 🔑</h2>
-  <input id="email" type="email" placeholder="Admin Email">
-  <input id="password" type="password" placeholder="Password">
-  <button id="loginBtn">Sign In</button>
+
+<div id="authPage" class="page active">
+  <div style="max-width:400px;margin:50px auto;padding:16px">
+    <div class="card">
+      <h1 style="text-align:center;margin:0 0 12px 0">🛡️ SafePaws Admin</h1>
+      <input id="loginEmail" type="email" placeholder="Admin Email">
+      <input id="loginPass" type="password" placeholder="Password">
+      <button id="loginBtn">Login</button>
+    </div>
+  </div>
 </div>
 
-<div id="dashBox" style="display:none">
-  <div class="card">
-    <h2>Dashboard 📊</h2>
-    <button id="logoutBtn" class="danger" style="width:auto;float:right">Sign Out</button>
+<div id="mainApp" style="display:none">
+  <button class="logout" id="logoutBtn">Logout</button>
+  <div id="driversPage" class="page active">
+    <h2>🚚 Drivers</h2>
+    <div class="card"><table id="driversTable"><thead><tr><th>Name</th><th>Plate</th><th>Status</th><th>Action</th></tr></thead><tbody></tbody></table></div>
   </div>
-
-  <div class="tabs">
-    <div class="tab active" onclick="showTab('drivers')">Drivers</div>
-    <div class="tab" onclick="showTab('bookings')">Bookings</div>
-    <div class="tab" onclick="showTab('earnings')">Earnings</div>
+  <div id="vetsPage" class="page">
+    <h2>🩺 Vet Clinics</h2>
+    <div class="card"><table id="vetsTable"><thead><tr><th>Clinic Name</th><th>Email</th><th>Status</th><th>Action</th></tr></thead><tbody></tbody></table></div>
   </div>
-
-  <div id="driversTab">
-    <div class="card">
-      <div class="row">
-        <input id="searchDriver" placeholder="Search name, email, plate...">
-        <select id="filterStatus">
-          <option value="all">All Status</option>
-          <option value="pending">Pending</option>
-          <option value="approved">Approved</option>
-          <option value="rejected">Rejected</option>
-        </select>
-        <button id="downloadDrivers">📥 Download CSV</button>
-      </div>
-    </div>
-    <div id="driversList"></div>
+  <div id="groomersPage" class="page">
+    <h2>✂️ Grooming Shops</h2>
+    <div class="card"><table id="groomersTable"><thead><tr><th>Shop Name</th><th>Email</th><th>Status</th><th>Action</th></tr></thead><tbody></tbody></table></div>
   </div>
-
-  <div id="bookingsTab" style="display:none">
-    <div class="card">
-      <h3>Live Bookings</h3>
-      <div id="bookingsList"></div>
+  <div id="earningsPage" class="page">
+    <h2>💰 Earnings</h2>
+    <div class="kpi">
+      <div class="card"><p>Delivery 15%</p><h3 id="earnDelivery">₱0</h3></div>
+      <div class="card"><p>Vet 20%</p><h3 id="earnVet">₱0</h3></div>
+      <div class="card"><p>Groom 25%</p><h3 id="earnGroom">₱0</h3></div>
+      <div class="card"><p>Total</p><h3 id="earnTotal">₱0</h3></div>
     </div>
   </div>
-
-  <div id="earningsTab" style="display:none">
-    <div class="stats-grid">
-      <div class="stat-card"><h3>Total Revenue Today</h3><p id="revToday">₱0</p></div>
-      <div class="stat-card"><h3>Your 15% Today</h3><p id="earnToday">₱0</p></div>
-      <div class="stat-card"><h3>Your 15% This Month</h3><p id="earnMonth">₱0</p></div>
-      <div class="stat-card"><h3>All-Time Earnings</h3><p id="earnAll">₱0</p></div>
-    </div>
-    <div class="card" style="margin-top:12px">
-      <h3>Earnings Per Date</h3>
-      <input id="datePicker" type="date">
-      <div id="earnPerDate" style="margin-top:12px;font-size:18px;font-weight:700">Select a date</div>
-    </div>
+  <div class="bottom-nav">
+    <div class="nav-item active" onclick="showPage('driversPage')">🚚 Drivers</div>
+    <div class="nav-item" onclick="showPage('vetsPage')">🩺 Vets</div>
+    <div class="nav-item" onclick="showPage('groomersPage')">✂️ Groom</div>
+    <div class="nav-item" onclick="showPage('earningsPage')">💰 Earn</div>
   </div>
 </div>
 
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
   import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
-  import { getFirestore, collection, onSnapshot, doc, updateDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+  import { getFirestore, collection, query, where, onSnapshot, doc, updateDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
-  const firebaseConfig = {
-    apiKey: "AIzaSyBVaqhNCrgDlWGEVjXygszJUdQR_bpG7os",
-    authDomain: "safepaws-batangas.firebaseapp.com",
-    projectId: "safepaws-batangas",
-    storageBucket: "safepaws-batangas.firebasestorage.app",
-    messagingSenderId: "629904615191",
-    appId: "1:629904615191:web:45f7148d65ba61a867f952"
-  };
-  
+  const firebaseConfig = { apiKey: "AIzaSyBVaqhNCrgDlWGEVjXygszJUdQR_bpG7os", authDomain: "safepaws-batangas.firebaseapp.com", projectId: "safepaws-batangas", storageBucket: "safepaws-batangas.firebasestorage.app", messagingSenderId: "629904615191", appId: "1:629904615191:web:45f7148d65ba61a867f952" };
   const app = initializeApp(firebaseConfig);
-  const auth = getAuth(app);
-  const db = getFirestore(app);
+  const auth = getAuth(app); const db = getFirestore(app);
   const $ = id => document.getElementById(id);
   
-  const ADMIN_EMAIL = "gabinessheabert@gmail.com"; // <-- PALITAN MO TO
-  const COMMISSION_RATE = 0.15; // 15% sayo
+  const ADMIN_EMAIL = "gabinessheabert@gmail.com"; // <-- PALITAN MO TO NG IKAW LANG
+  if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
 
-  let allDrivers = [];
-  let allBookings = [];
-
-  if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('sw.js');
-  }
-
-  window.showTab = (tab) => {
-    document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
-    document.querySelector(`.tab[onclick="showTab('${tab}')"]`).classList.add('active');
-    $('driversTab').style.display = tab==='drivers'?'block':'none';
-    $('bookingsTab').style.display = tab==='bookings'?'block':'none';
-    $('earningsTab').style.display = tab==='earnings'?'block':'none';
+  window.showPage = (pageId) => {
+    document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+    $(pageId).classList.add('active');
+    document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+    document.querySelector(`.nav-item[onclick="showPage('${pageId}')"]`).classList.add('active');
   }
 
   onAuthStateChanged(auth, user => {
-    if(!user || user.email!== ADMIN_EMAIL){
-      $('authBox').style.display = 'block';
-      $('dashBox').style.display = 'none';
-      if(user) signOut(auth);
-      return;
-    }
-    $('authBox').style.display = 'none';
-    $('dashBox').style.display = 'block';
-    listenAll();
+    if(!user){ $('authPage').classList.add('active'); $('mainApp').style.display='none'; return; }
+    if(user.email !== ADMIN_EMAIL){ alert('Access Denied. Admins only.'); signOut(auth); return; }
+    $('authPage').classList.remove('active'); $('mainApp').style.display='block';
+    loadDrivers(); loadVets(); loadGroomers(); loadEarnings();
   });
 
-  $('loginBtn').onclick = async () => {
-    try { await signInWithEmailAndPassword(auth, $('email').value, $('password').value); }
-    catch(e) { alert(e.message); }
-  };
+  $('loginBtn').onclick = async () => { try{await signInWithEmailAndPassword(auth,$('loginEmail').value,$('loginPass').value);}catch(e){alert(e.message);}};
   $('logoutBtn').onclick = () => signOut(auth);
 
-  function listenAll() {
-    onSnapshot(collection(db, 'drivers'), snap => {
-      allDrivers = snap.docs.map(d=>({id:d.id,...d.data()}));
-      renderDrivers();
+  function loadDrivers(){
+    onSnapshot(collection(db,'drivers'),snap=>{
+      $('driversTable tbody').innerHTML = snap.docs.map(d=>{
+        const x=d.data();
+        return `<tr><td>${x.name||''}</td><td>${x.plateNumber||''}</td><td><span class="status ${x.status}">${x.status}</span></td><td>${x.status==='pending'?`<button class="success" onclick="updateStatus('drivers','${d.id}','approved')">Approve</button><button class="danger" onclick="updateStatus('drivers','${d.id}','rejected')">Reject</button>`:''}</td></tr>`
+      }).join('')||'<tr><td colspan=4>No drivers yet</td></tr>';
     });
-    onSnapshot(collection(db, 'bookings'), snap => {
-      allBookings = snap.docs.map(d=>({id:d.id,...d.data()}));
-      renderBookings();
-      calcEarnings();
+  }
+  function loadVets(){
+    onSnapshot(collection(db,'vets'),snap=>{
+      $('vetsTable tbody').innerHTML = snap.docs.map(d=>{
+        const x=d.data();
+        return `<tr><td>${x.clinicName||''}</td><td>${x.email||''}</td><td><span class="status ${x.status}">${x.status}</span></td><td>${x.status==='pending'?`<button class="success" onclick="updateStatus('vets','${d.id}','approved')">Approve</button>`:''}</td></tr>`
+      }).join('')||'<tr><td colspan=4>No vets yet</td></tr>';
     });
-    $('searchDriver').oninput = renderDrivers;
-    $('filterStatus').onchange = renderDrivers;
-    $('downloadDrivers').onclick = downloadCSV;
-    $('datePicker').onchange = calcEarningsPerDate;
   }
-
-  function renderDrivers() {
-    const search = $('searchDriver').value.toLowerCase();
-    const filter = $('filterStatus').value;
-    const filtered = allDrivers.filter(d=>{
-      const matchSearch = d.name.toLowerCase().includes(search) || d.email.toLowerCase().includes(search) || d.plateNumber.toLowerCase().includes(search);
-      const matchFilter = filter==='all' || d.status===filter;
-      return matchSearch && matchFilter;
+  function loadGroomers(){
+    onSnapshot(collection(db,'groomers'),snap=>{
+      $('groomersTable tbody').innerHTML = snap.docs.map(d=>{
+        const x=d.data();
+        return `<tr><td>${x.shopName||''}</td><td>${x.email||''}</td><td><span class="status ${x.status}">${x.status}</span></td><td>${x.status==='pending'?`<button class="success" onclick="updateStatus('groomers','${d.id}','approved')">Approve</button>`:''}</td></tr>`
+      }).join('')||'<tr><td colspan=4>No groomers yet</td></tr>';
     });
-    $('driversList').innerHTML = filtered.map(v=>`
-      <div class="card driver ${v.status}">
-        <h3>${v.name} - <span style="color:${v.status==='pending'?'#f59e0b':v.status==='approved'?'#16a34a':'#dc2626'}">${v.status.toUpperCase()}</span></h3>
-        <p><b>Email:</b> ${v.email}<br><b>Phone:</b> ${v.phone}<br><b>Plate:</b> ${v.plateNumber}</p>
-        <a href="${v.licenseURL}" target="_blank"><img src="${v.licenseURL}"></a>
-        ${v.status==='pending'? `<div class="row"><button onclick="approveDriver('${v.id}')">✅ Approve</button><button class="danger" onclick="rejectDriver('${v.id}')">❌ Reject</button></div>` : ''}
-      </div>
-    `).join('') || '<div class="card">No drivers found.</div>';
   }
+  window.updateStatus = async (col,id,status) => await updateDoc(doc(db,col,id),{status});
 
-  function renderBookings() {
-    $('bookingsList').innerHTML = allBookings.map(b=>`
-      <div class="card">
-        <b>${b.email}</b> | ${b.serviceType} | <span style="color:#16a34a">${b.status}</span><br>
-        Driver: ${b.driverEmail||'None'} | Fare: ₱${b.estimatedFare}
-      </div>
-    `).join('') || '<div class="card">No bookings yet.</div>';
+  function loadEarnings(){
+    let del=0, vet=0, groom=0;
+    onSnapshot(query(collection(db,'bookings'),where('status','==','completed')),snap=>{ del=snap.docs.reduce((s,d)=>s+(d.data().estimatedFare||0)*0.15,0); $('earnDelivery').textContent=`₱${del.toFixed(2)}`; $('earnTotal').textContent=`₱${(del+vet+groom).toFixed(2)}`; });
+    onSnapshot(query(collection(db,'vet_bookings'),where('status','==','completed')),snap=>{ vet=snap.docs.reduce((s,d)=>s+(d.data().fee||0)*0.20,0); $('earnVet').textContent=`₱${vet.toFixed(2)}`; $('earnTotal').textContent=`₱${(del+vet+groom).toFixed(2)}`; });
+    onSnapshot(query(collection(db,'grooming_bookings'),where('status','==','completed')),snap=>{ groom=snap.docs.reduce((s,d)=>s+(d.data().fee||0)*0.25,0); $('earnGroom').textContent=`₱${groom.toFixed(2)}`; $('earnTotal').textContent=`₱${(del+vet+groom).toFixed(2)}`; });
   }
-
-  function calcEarnings() {
-    const now = new Date();
-    const todayStr = now.toISOString().slice(0,10);
-    const monthStr = now.toISOString().slice(0,7);
-    const completed = allBookings.filter(b=>b.status==='completed' && b.completedAt);
-    const revToday = completed.filter(b=>b.completedAt.toDate().toISOString().slice(0,10)===todayStr).reduce((s,b)=>s+b.estimatedFare,0);
-    const revMonth = completed.filter(b=>b.completedAt.toDate().toISOString().slice(0,7)===monthStr).reduce((s,b)=>s+b.estimatedFare,0);
-    const revAll = completed.reduce((s,b)=>s+b.estimatedFare,0);
-    $('revToday').textContent = `₱${revToday.toFixed(2)}`;
-    $('earnToday').textContent = `₱${(revToday*COMMISSION_RATE).toFixed(2)}`;
-    $('earnMonth').textContent = `₱${(revMonth*COMMISSION_RATE).toFixed(2)}`;
-    $('earnAll').textContent = `₱${(revAll*COMMISSION_RATE).toFixed(2)}`;
-  }
-
-  function calcEarningsPerDate() {
-    const date = $('datePicker').value;
-    if(!date) return;
-    const completed = allBookings.filter(b=>b.status==='completed' && b.completedAt && b.completedAt.toDate().toISOString().slice(0,10)===date);
-    const total = completed.reduce((s,b)=>s+b.estimatedFare,0);
-    $('earnPerDate').innerHTML = `Total: ₱${total.toFixed(2)} <br> Your 15%: ₱${(total*COMMISSION_RATE).toFixed(2)}`;
-  }
-
-  function downloadCSV() {
-    let csv = 'Name,Email,Phone,Plate,Status,AppliedAt\n';
-    allDrivers.forEach(d=>{
-      csv += `"${d.name}","${d.email}","${d.phone}","${d.plateNumber}","${d.status}","${d.appliedAt?.toDate().toLocaleDateString()||''}"\n`;
-    });
-    const blob = new Blob([csv],{type:'text/csv'});
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = 'safepaws_drivers.csv';
-    a.click();
-  }
-
-  window.approveDriver = async (id) => { await updateDoc(doc(db, 'drivers', id), { status: 'approved' }); }
-  window.rejectDriver = async (id) => { await updateDoc(doc(db, 'drivers', id), { status: 'rejected' }); }
 </script>
 </body>
 </html>
