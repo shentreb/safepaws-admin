@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>SafePaws Admin V2.2</title>
+<title>SafePaws Admin V2.4</title>
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#0ea5e9">
 <style>
@@ -11,7 +11,7 @@
  .page{display:none;padding:16px;max-width:900px;margin:0 auto}
  .page.active{display:block}
  .card{background:#1e293b;padding:16px;border-radius:16px;box-shadow:0 4px 12px rgba(0,0,0,.3);margin-bottom:12px}
-  input,button{width:100%;padding:12px;margin-top:8px;border:1px solid #334155;border-radius:10px;font-size:14px;background:#334155;color:#fff;box-sizing:border-box}
+  input,button,select{width:100%;padding:12px;margin-top:8px;border:1px solid #334155;border-radius:10px;font-size:14px;background:#334155;color:#fff;box-sizing:border-box}
   button{background:#0ea5e9;border:0;cursor:pointer;font-weight:700}
   button.danger{background:#dc2626}
   button.success{background:#16a34a}
@@ -27,10 +27,16 @@
   .kpi .card{text-align:center}
   .kpi h3{margin:0;font-size:24px;color:#0ea5e9}
   .logout{position:absolute;top:16px;right:16px;width:auto;padding:8px 12px;font-size:12px;background:#dc2626}
+  .filters{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px}
+  #loader{position:fixed; top:0; left:0; right:0; bottom:0;background:#0f172a; z-index:9999; display:flex; flex-direction:column; align-items:center; justify-content:center;transition:opacity .5s ease-out;}
+  #loader.hide{opacity:0; pointer-events:none;}
+  .paw{font-size:64px; animation: bounce 1s infinite;}
+  @keyframes bounce{0%,100%{transform:translateY(0);}50%{transform:translateY(-20px);}}
+  #loader h1{margin-top:12px; color:#0ea5e9; font-size:28px; letter-spacing:1px;}
 </style>
 </head>
 <body>
-
+<div id="loader"><div class="paw">🐾</div><h1>SafePaws Admin</h1></div>
 <div id="authPage" class="page active">
   <div style="max-width:400px;margin:50px auto;padding:16px">
     <div class="card">
@@ -41,23 +47,26 @@
     </div>
   </div>
 </div>
-
 <div id="mainApp" style="display:none">
   <button class="logout" id="logoutBtn">Logout</button>
   <div id="driversPage" class="page active">
     <h2>🚚 Drivers</h2>
-    <div class="card"><table id="driversTable"><thead><tr><th>Name</th><th>Plate</th><th>Status</th><th>Action</th></tr></thead><tbody></tbody></table></div>
+    <div class="card"><input id="searchDriver" placeholder="Search Name or Plate..." oninput="loadDrivers()"><table id="driversTable"><thead><tr><th>Name</th><th>Plate</th><th>Status</th><th>Action</th></tr></thead><tbody></tbody></table></div>
   </div>
   <div id="vetsPage" class="page">
     <h2>🩺 Vet Clinics</h2>
-    <div class="card"><table id="vetsTable"><thead><tr><th>Clinic Name</th><th>Email</th><th>Status</th><th>Action</th></tr></thead><tbody></tbody></table></div>
+    <div class="card"><input id="searchVet" placeholder="Search Clinic or Email..." oninput="loadVets()"><table id="vetsTable"><thead><tr><th>Clinic Name</th><th>Email</th><th>Status</th><th>Action</th></tr></thead><tbody></tbody></table></div>
   </div>
   <div id="groomersPage" class="page">
     <h2>✂️ Grooming Shops</h2>
-    <div class="card"><table id="groomersTable"><thead><tr><th>Shop Name</th><th>Email</th><th>Status</th><th>Action</th></tr></thead><tbody></tbody></table></div>
+    <div class="card"><input id="searchGroom" placeholder="Search Shop or Email..." oninput="loadGroomers()"><table id="groomersTable"><thead><tr><th>Shop Name</th><th>Email</th><th>Status</th><th>Action</th></tr></thead><tbody></tbody></table></div>
   </div>
   <div id="earningsPage" class="page">
     <h2>💰 Earnings</h2>
+    <div class="card">
+      <div class="filters"><input id="dateFrom" type="date"><input id="dateTo" type="date"></div>
+      <button onclick="loadEarnings()">Filter by Date</button>
+    </div>
     <div class="kpi">
       <div class="card"><p>Delivery 15%</p><h3 id="earnDelivery">₱0</h3></div>
       <div class="card"><p>Vet 20%</p><h3 id="earnVet">₱0</h3></div>
@@ -72,69 +81,24 @@
     <div class="nav-item" onclick="showPage('earningsPage')">💰 Earn</div>
   </div>
 </div>
-
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
   import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
   import { getFirestore, collection, query, where, onSnapshot, doc, updateDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
-
   const firebaseConfig = { apiKey: "AIzaSyBVaqhNCrgDlWGEVjXygszJUdQR_bpG7os", authDomain: "safepaws-batangas.firebaseapp.com", projectId: "safepaws-batangas", storageBucket: "safepaws-batangas.firebasestorage.app", messagingSenderId: "629904615191", appId: "1:629904615191:web:45f7148d65ba61a867f952" };
-  const app = initializeApp(firebaseConfig);
-  const auth = getAuth(app); const db = getFirestore(app);
-  const $ = id => document.getElementById(id);
-  
-  const ADMIN_EMAIL = "gabinessheabert@gmail.com"; // <-- PALITAN MO TO NG IKAW LANG
+  const app = initializeApp(firebaseConfig); const auth = getAuth(app); const db = getFirestore(app); const $ = id => document.getElementById(id);
+  const ADMIN_EMAIL = "gabinessheabert@gmail.com";
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
-
-  window.showPage = (pageId) => {
-    document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
-    $(pageId).classList.add('active');
-    document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
-    document.querySelector(`.nav-item[onclick="showPage('${pageId}')"]`).classList.add('active');
-  }
-
-  onAuthStateChanged(auth, user => {
-    if(!user){ $('authPage').classList.add('active'); $('mainApp').style.display='none'; return; }
-    if(user.email !== ADMIN_EMAIL){ alert('Access Denied. Admins only.'); signOut(auth); return; }
-    $('authPage').classList.remove('active'); $('mainApp').style.display='block';
-    loadDrivers(); loadVets(); loadGroomers(); loadEarnings();
-  });
-
+  window.showPage = (pageId) => {document.querySelectorAll('.page').forEach(p=>p.classList.remove('active')); $(pageId).classList.add('active'); document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active')); document.querySelector(`.nav-item[onclick="showPage('${pageId}')"]`).classList.add('active');}
+  onAuthStateChanged(auth, user => {if(!user){ $('authPage').classList.add('active'); $('mainApp').style.display='none'; return; } if(user.email !== ADMIN_EMAIL){ alert('Access Denied. Admins only.'); signOut(auth); return; } $('authPage').classList.remove('active'); $('mainApp').style.display='block'; loadDrivers(); loadVets(); loadGroomers(); loadEarnings();});
   $('loginBtn').onclick = async () => { try{await signInWithEmailAndPassword(auth,$('loginEmail').value,$('loginPass').value);}catch(e){alert(e.message);}};
   $('logoutBtn').onclick = () => signOut(auth);
-
-  function loadDrivers(){
-    onSnapshot(collection(db,'drivers'),snap=>{
-      $('driversTable tbody').innerHTML = snap.docs.map(d=>{
-        const x=d.data();
-        return `<tr><td>${x.name||''}</td><td>${x.plateNumber||''}</td><td><span class="status ${x.status}">${x.status}</span></td><td>${x.status==='pending'?`<button class="success" onclick="updateStatus('drivers','${d.id}','approved')">Approve</button><button class="danger" onclick="updateStatus('drivers','${d.id}','rejected')">Reject</button>`:''}</td></tr>`
-      }).join('')||'<tr><td colspan=4>No drivers yet</td></tr>';
-    });
-  }
-  function loadVets(){
-    onSnapshot(collection(db,'vets'),snap=>{
-      $('vetsTable tbody').innerHTML = snap.docs.map(d=>{
-        const x=d.data();
-        return `<tr><td>${x.clinicName||''}</td><td>${x.email||''}</td><td><span class="status ${x.status}">${x.status}</span></td><td>${x.status==='pending'?`<button class="success" onclick="updateStatus('vets','${d.id}','approved')">Approve</button>`:''}</td></tr>`
-      }).join('')||'<tr><td colspan=4>No vets yet</td></tr>';
-    });
-  }
-  function loadGroomers(){
-    onSnapshot(collection(db,'groomers'),snap=>{
-      $('groomersTable tbody').innerHTML = snap.docs.map(d=>{
-        const x=d.data();
-        return `<tr><td>${x.shopName||''}</td><td>${x.email||''}</td><td><span class="status ${x.status}">${x.status}</span></td><td>${x.status==='pending'?`<button class="success" onclick="updateStatus('groomers','${d.id}','approved')">Approve</button>`:''}</td></tr>`
-      }).join('')||'<tr><td colspan=4>No groomers yet</td></tr>';
-    });
-  }
+  window.loadDrivers = () => {const search = $('searchDriver').value.toLowerCase(); onSnapshot(collection(db,'drivers'),snap=>{ const filtered = snap.docs.filter(d=>{ const x=d.data(); return (x.name||'').toLowerCase().includes(search) || (x.plateNumber||'').toLowerCase().includes(search);}); $('driversTable tbody').innerHTML = filtered.map(d=>{ const x=d.data(); return `<tr><td>${x.name||''}</td><td>${x.plateNumber||''}</td><td><span class="status ${x.status}">${x.status}</span></td><td>${x.status==='pending'?`<button class="success" onclick="updateStatus('drivers','${d.id}','approved')">Approve</button><button class="danger" onclick="updateStatus('drivers','${d.id}','rejected')">Reject</button>`:''}</td></tr>`}).join('')||'<tr><td colspan=4>No drivers found</td></tr>';});}
+  window.loadVets = () => {const search = $('searchVet').value.toLowerCase(); onSnapshot(collection(db,'vets'),snap=>{ const filtered = snap.docs.filter(d=>{ const x=d.data(); return (x.clinicName||'').toLowerCase().includes(search) || (x.email||'').toLowerCase().includes(search);}); $('vetsTable tbody').innerHTML = filtered.map(d=>{ const x=d.data(); return `<tr><td>${x.clinicName||''}</td><td>${x.email||''}</td><td><span class="status ${x.status}">${x.status}</span></td><td>${x.status==='pending'?`<button class="success" onclick="updateStatus('vets','${d.id}','approved')">Approve</button>`:''}</td></tr>`}).join('')||'<tr><td colspan=4>No vets found</td></tr>';});}
+  window.loadGroomers = () => {const search = $('searchGroom').value.toLowerCase(); onSnapshot(collection(db,'groomers'),snap=>{ const filtered = snap.docs.filter(d=>{ const x=d.data(); return (x.shopName||'').toLowerCase().includes(search) || (x.email||'').toLowerCase().includes(search);}); $('groomersTable tbody').innerHTML = filtered.map(d=>{ const x=d.data(); return `<tr><td>${x.shopName||''}</td><td>${x.email||''}</td><td><span class="status ${x.status}">${x.status}</span></td><td>${x.status==='pending'?`<button class="success" onclick="updateStatus('groomers','${d.id}','approved')">Approve</button>`:''}</td></tr>`}).join('')||'<tr><td colspan=4>No groomers found</td></tr>';});}
   window.updateStatus = async (col,id,status) => await updateDoc(doc(db,col,id),{status});
-
-  function loadEarnings(){
-    let del=0, vet=0, groom=0;
-    onSnapshot(query(collection(db,'bookings'),where('status','==','completed')),snap=>{ del=snap.docs.reduce((s,d)=>s+(d.data().estimatedFare||0)*0.15,0); $('earnDelivery').textContent=`₱${del.toFixed(2)}`; $('earnTotal').textContent=`₱${(del+vet+groom).toFixed(2)}`; });
-    onSnapshot(query(collection(db,'vet_bookings'),where('status','==','completed')),snap=>{ vet=snap.docs.reduce((s,d)=>s+(d.data().fee||0)*0.20,0); $('earnVet').textContent=`₱${vet.toFixed(2)}`; $('earnTotal').textContent=`₱${(del+vet+groom).toFixed(2)}`; });
-    onSnapshot(query(collection(db,'grooming_bookings'),where('status','==','completed')),snap=>{ groom=snap.docs.reduce((s,d)=>s+(d.data().fee||0)*0.25,0); $('earnGroom').textContent=`₱${groom.toFixed(2)}`; $('earnTotal').textContent=`₱${(del+vet+groom).toFixed(2)}`; });
-  }
+  window.loadEarnings = () => {let del=0, vet=0, groom=0; const from = $('dateFrom').value ? new Date($('dateFrom').value) : null; const to = $('dateTo').value ? new Date($('dateTo').value) : null; const filterByDate = (snap, dateField, feeField, rate) => { return snap.docs.filter(d=>{ const data = d.data(); const dDate = data[dateField]?.toDate ? data[dateField].toDate() : new Date(data[dateField]); if(from && dDate < from) return false; if(to && dDate > to) return false; return data.status === 'completed';}).reduce((s,d)=>s+(d.data()[feeField]||0)*rate,0);}; onSnapshot(collection(db,'bookings'),snap=>{ del=filterByDate(snap,'createdAt','estimatedFare',0.15); updateTotal(); }); onSnapshot(collection(db,'vet_bookings'),snap=>{ vet=filterByDate(snap,'createdAt','fee',0.20); updateTotal(); }); onSnapshot(collection(db,'grooming_bookings'),snap=>{ groom=filterByDate(snap,'createdAt','fee',0.25); updateTotal(); }); function updateTotal(){$('earnDelivery').textContent=`₱${del.toFixed(2)}`; $('earnVet').textContent=`₱${vet.toFixed(2)}`; $('earnGroom').textContent=`₱${groom.toFixed(2)}`; $('earnTotal').textContent=`₱${(del+vet+groom).toFixed(2)}`;}}
+  window.addEventListener('load', () => {setTimeout(() => {document.getElementById('loader').classList.add('hide');}, 1500); });
 </script>
 </body>
 </html>
