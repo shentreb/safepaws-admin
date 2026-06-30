@@ -1,6 +1,24 @@
-self.addEventListener('install', e => {
-  e.waitUntil(caches.open('safepaws-admin-v1').then(cache => cache.addAll(['./','./index.html','./manifest.json','./icon-192.png','./icon-512.png'])));
+const CACHE_NAME = 'safepaws-admin-v2.2';
+const ASSETS_TO_CACHE = [
+  './',
+  './index.html',
+  './manifest.json'
+];
+
+// Install Service Worker and cache assets
+self.addEventListener('install', (event) => {
+  event.waitUntil(
+    caches.open(CACHE_NAME).then((cache) => {
+      return cache.addAll(ASSETS_TO_CACHE);
+    })
+  );
 });
-self.addEventListener('fetch', e => {
-  e.respondWith(caches.match(e.request).then(r => r || fetch(e.request)));
+
+// Serve cached content when offline
+self.addEventListener('fetch', (event) => {
+  event.respondWith(
+    caches.match(event.request).then((response) => {
+      return response || fetch(event.request);
+    })
+  );
 });
