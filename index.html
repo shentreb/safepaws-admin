@@ -179,4 +179,5 @@ loadApproval();
 window.approve=async(id,col)=>{ await updateDoc(doc(db,col,id),{status:'approved'}); loadApproval(); }
 window.reject=async(id,col)=>{ await updateDoc(doc(db,col,id),{status:'rejected'}); loadApproval(); }
 </script>
-</body></html>
+</body>
+</html>
