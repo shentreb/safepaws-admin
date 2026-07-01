@@ -1,104 +1,153 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>SafePaws Admin V2.4</title>
-<link rel="manifest" href="manifest.json">
-<meta name="theme-color" content="#0ea5e9">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SafePaws Admin V2.2</title>
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import { getFirestore, collection, onSnapshot, doc, updateDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+/* ========== FIREBASE CONFIG - GALING SA PIC MO ========== */
+const firebaseConfig = { 
+  apiKey: "AIzaSyBVaqhNCrgDlWGEVjXygszJUdQR_bpG7os", // <- DITO LANG BOI. PASTE MO API KEY MO
+  authDomain: "safepaws-batangas.firebaseapp.com",
+  projectId: "safepaws-batangas",
+  storageBucket: "safepaws-batangas.firebasestorage.app",
+  messagingSenderId: "629904615191",
+  appId: "1:629904615191:web:45f7148d65ba61a867f952"
+};
+/* ======================================================== */
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+
+/* ========== EMAIL MO DITO ========== */
+const ADMIN_EMAIL = "gabinessheabert@gmail.com"; // <- EMAIL MO DITO BOI
+/* =================================== */
+
+onAuthStateChanged(auth, user => { 
+  document.getElementById('loginDiv').style.display = user? 'none' : 'block'; 
+  document.getElementById('appDiv').style.display = user? 'block' : 'none'; 
+  if(user) loadData(); 
+});
+
+window.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('email').value = ADMIN_EMAIL;
+});
+
+document.getElementById('loginBtn').onclick = () => signInWithEmailAndPassword(auth, document.getElementById('email').value, document.getElementById('pass').value).catch(e => alert(e.message));
+document.getElementById('logoutBtn').onclick = () => signOut(auth);
+
+document.querySelectorAll('.tab-btn').forEach(btn => btn.onclick = () => { 
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active')); 
+  btn.classList.add('active'); 
+  document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active')); 
+  document.getElementById(btn.dataset.tab).classList.add('active'); 
+});
+
+document.querySelectorAll('.sub-tab-btn').forEach(btn => btn.onclick = () => { 
+  const parent = btn.closest('.tab-content'); 
+  parent.querySelectorAll('.sub-tab-btn').forEach(b => b.classList.remove('active')); 
+  btn.classList.add('active'); 
+  parent.querySelectorAll('.sub-content').forEach(c => c.classList.remove('active')); 
+  parent.querySelector('#'+btn.dataset.sub).classList.add('active'); 
+});
+
+function driverRow(d) { return `<tr><td>${d.name||''}</td><td>${d.plateNumber||'-'}</td><td>${d.status}</td><td>${d.status==='pending'?`<button class="approve" data-id="${d.id}">Approve</button> <button class="reject" data-id="${d.id}">Reject</button>`:`<button class="reject" data-id="${d.id}">Deactivate</button>`}</td></tr>`; }
+function vetRow(d) { return `<tr><td>${d.clinicName||''}</td><td>-</td><td>${d.status}</td><td>${d.status==='pending'?`<button class="approve" data-id="${d.id}" data-col="vets">Approve</button> <button class="reject" data-id="${d.id}" data-col="vets">Reject</button>`:`<button class="reject" data-id="${d.id}" data-col="vets">Deactivate</button>`}</td></tr>`; }
+function groomRow(d) { return `<tr><td>${d.shopName||''}</td><td>-</td><td>${d.status}</td><td>${d.status==='pending'?`<button class="approve" data-id="${d.id}" data-col="groomers">Approve</button> <button class="reject" data-id="${d.id}" data-col="groomers">Reject</button>`:`<button class="reject" data-id="${d.id}" data-col="groomers">Deactivate</button>`}</td></tr>`; }
+
+function loadData() {
+  onSnapshot(collection(db, "drivers"), snap => {
+    document.getElementById('driversNewBody').innerHTML = snap.docs.filter(d=>d.data().status==='pending').map(d=>driverRow({id:d.id,...d.data()})).join('') || '<tr><td colspan="4">No new drivers</td></tr>';
+    document.getElementById('driversApprovedBody').innerHTML = snap.docs.filter(d=>d.data().status==='approved').map(d=>driverRow({id:d.id,...d.data()})).join('') || '<tr><td colspan="4">No approved drivers</td></tr>';
+  });
+  onSnapshot(collection(db, "vets"), snap => {
+    document.getElementById('vetsNewBody').innerHTML = snap.docs.filter(d=>d.data().status==='pending').map(d=>vetRow({id:d.id,...d.data()})).join('') || '<tr><td colspan="4">No new vets</td></tr>';
+    document.getElementById('vetsApprovedBody').innerHTML = snap.docs.filter(d=>d.data().status==='approved').map(d=>vetRow({id:d.id,...d.data()})).join('') || '<tr><td colspan="4">No approved vets</td></tr>';
+  });
+  onSnapshot(collection(db, "groomers"), snap => {
+    document.getElementById('groomNewBody').innerHTML = snap.docs.filter(d=>d.data().status==='pending').map(d=>groomRow({id:d.id,...d.data()})).join('') || '<tr><td colspan="4">No new groomers</td></tr>';
+    document.getElementById('groomApprovedBody').innerHTML = snap.docs.filter(d=>d.data().status==='approved').map(d=>groomRow({id:d.id,...d.data()})).join('') || '<tr><td colspan="4">No approved groomers</td></tr>';
+  });
+  onSnapshot(collection(db, "earnings"), snap => { 
+    document.getElementById('earningsBody').innerHTML = snap.empty?'<tr><td colspan="2">No earnings</td></tr>':snap.docs.map(d=>`<tr><td>₱${d.data().amount}</td><td>${d.data().driverName||d.data().clinicName||d.data().shopName}</td></tr>`).join('') 
+  });
+}
+
+document.addEventListener('click', async e => {
+  if(e.target.classList.contains('approve')) await updateDoc(doc(db, 'drivers', e.target.dataset.id), {status: 'approved'});
+  if(e.target.classList.contains('reject') &&!e.target.dataset.col) await updateDoc(doc(db, 'drivers', e.target.dataset.id), {status: 'rejected'});
+  if(e.target.dataset.col) await updateDoc(doc(db, e.target.dataset.col, e.target.dataset.id), {status: e.target.classList.contains('approve')?'approved':'rejected'});
+});
+</script>
 <style>
-  body{font-family:system-ui;background:#0f172a;color:#e5e7eb;margin:0;padding:0 0 70px 0}
- .page{display:none;padding:16px;max-width:900px;margin:0 auto}
- .page.active{display:block}
- .card{background:#1e293b;padding:16px;border-radius:16px;box-shadow:0 4px 12px rgba(0,0,0,.3);margin-bottom:12px}
-  input,button,select{width:100%;padding:12px;margin-top:8px;border:1px solid #334155;border-radius:10px;font-size:14px;background:#334155;color:#fff;box-sizing:border-box}
-  button{background:#0ea5e9;border:0;cursor:pointer;font-weight:700}
-  button.danger{background:#dc2626}
-  button.success{background:#16a34a}
-  table{width:100%;font-size:13px;border-collapse:collapse;margin-top:12px}
-  th,td{padding:10px;text-align:left;border-bottom:1px solid #334155}
-  th{background:#334155}
-  .status{padding:4px 8px;border-radius:6px;font-size:12px;font-weight:700}
-  .pending{background:#f59e0b;color:#111}.approved{background:#16a34a}.rejected{background:#dc2626}
- .bottom-nav{position:fixed;bottom:0;left:0;right:0;background:#1e293b;display:flex;justify-content:space-around;padding:8px 0;border-top:1px solid #334155}
- .nav-item{flex:1;text-align:center;font-size:12px;cursor:pointer;padding:8px;color:#94a3b8}
- .nav-item.active{color:#0ea5e9;font-weight:700;background:#334155}
-  .kpi{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
-  .kpi .card{text-align:center}
-  .kpi h3{margin:0;font-size:24px;color:#0ea5e9}
-  .logout{position:absolute;top:16px;right:16px;width:auto;padding:8px 12px;font-size:12px;background:#dc2626}
-  .filters{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px}
-  #loader{position:fixed; top:0; left:0; right:0; bottom:0;background:#0f172a; z-index:9999; display:flex; flex-direction:column; align-items:center; justify-content:center;transition:opacity .5s ease-out;}
-  #loader.hide{opacity:0; pointer-events:none;}
-  .paw{font-size:64px; animation: bounce 1s infinite;}
-  @keyframes bounce{0%,100%{transform:translateY(0);}50%{transform:translateY(-20px);}}
-  #loader h1{margin-top:12px; color:#0ea5e9; font-size:28px; letter-spacing:1px;}
+body{font-family:system-ui;background:#0f1117;color:#e6e6e6;margin:0;padding:16px;padding-bottom:80px}
+table{width:100%;border-collapse:collapse;background:#1a1d24;border-radius:12px;overflow:hidden;margin-top:12px}
+th,td{padding:12px;text-align:left;border-bottom:1px solid #2a2f3a}
+th{background:#2a2f3a}
+input,button{padding:10px;margin:4px;border-radius:8px;border:1px solid #2a2f3a;background:#1a1d24;color:#e6e6e6}
+button{background:#4a5af9;border:0;font-weight:700;cursor:pointer}
+input[readonly]{background:#2a2f3a;color:#9aa0a6;cursor:not-allowed}
+.tab-bar{position:fixed;bottom:0;left:0;right:0;display:flex;background:#1a1d24;border-top:1px solid #2a2f3a}
+.tab-btn{flex:1;padding:14px;background:transparent;border:0;color:#9aa0a6;font-size:14px}
+.tab-btn.active{color:#4a5af9;font-weight:700}
+.tab-content{display:none}.tab-content.active{display:block}
+.approve{background:#22c55e}.reject{background:#ef4444}
+.sub-tab-bar{display:flex;gap:8px;margin:12px 0}
+.sub-tab-btn{flex:1;padding:10px;background:#1a1d24;border:1px solid #2a2f3a;border-radius:8px;font-size:14px}
+.sub-tab-btn.active{background:#4a5af9}
+.sub-content{display:none}.sub-content.active{display:block}
 </style>
 </head>
 <body>
-<div id="loader"><div class="paw">🐾</div><h1>SafePaws Admin</h1></div>
-<div id="authPage" class="page active">
-  <div style="max-width:400px;margin:50px auto;padding:16px">
-    <div class="card">
-      <h1 style="text-align:center;margin:0 0 12px 0">🛡️ SafePaws Admin</h1>
-      <input id="loginEmail" type="email" placeholder="Admin Email">
-      <input id="loginPass" type="password" placeholder="Password">
-      <button id="loginBtn">Login</button>
-    </div>
-  </div>
+<div id="loginDiv">
+  <h2>Admin Login</h2>
+  <input id="email" type="email" placeholder="Email" readonly>
+  <input id="pass" type="password" placeholder="Password">
+  <button id="loginBtn">Login</button>
 </div>
-<div id="mainApp" style="display:none">
-  <button class="logout" id="logoutBtn">Logout</button>
-  <div id="driversPage" class="page active">
-    <h2>🚚 Drivers</h2>
-    <div class="card"><input id="searchDriver" placeholder="Search Name or Plate..." oninput="loadDrivers()"><table id="driversTable"><thead><tr><th>Name</th><th>Plate</th><th>Status</th><th>Action</th></tr></thead><tbody></tbody></table></div>
-  </div>
-  <div id="vetsPage" class="page">
-    <h2>🩺 Vet Clinics</h2>
-    <div class="card"><input id="searchVet" placeholder="Search Clinic or Email..." oninput="loadVets()"><table id="vetsTable"><thead><tr><th>Clinic Name</th><th>Email</th><th>Status</th><th>Action</th></tr></thead><tbody></tbody></table></div>
-  </div>
-  <div id="groomersPage" class="page">
-    <h2>✂️ Grooming Shops</h2>
-    <div class="card"><input id="searchGroom" placeholder="Search Shop or Email..." oninput="loadGroomers()"><table id="groomersTable"><thead><tr><th>Shop Name</th><th>Email</th><th>Status</th><th>Action</th></tr></thead><tbody></tbody></table></div>
-  </div>
-  <div id="earningsPage" class="page">
-    <h2>💰 Earnings</h2>
-    <div class="card">
-      <div class="filters"><input id="dateFrom" type="date"><input id="dateTo" type="date"></div>
-      <button onclick="loadEarnings()">Filter by Date</button>
-    </div>
-    <div class="kpi">
-      <div class="card"><p>Delivery 15%</p><h3 id="earnDelivery">₱0</h3></div>
-      <div class="card"><p>Vet 20%</p><h3 id="earnVet">₱0</h3></div>
-      <div class="card"><p>Groom 25%</p><h3 id="earnGroom">₱0</h3></div>
-      <div class="card"><p>Total</p><h3 id="earnTotal">₱0</h3></div>
-    </div>
-  </div>
-  <div class="bottom-nav">
-    <div class="nav-item active" onclick="showPage('driversPage')">🚚 Drivers</div>
-    <div class="nav-item" onclick="showPage('vetsPage')">🩺 Vets</div>
-    <div class="nav-item" onclick="showPage('groomersPage')">✂️ Groom</div>
-    <div class="nav-item" onclick="showPage('earningsPage')">💰 Earn</div>
-  </div>
+
+<div id="appDiv" style="display:none">
+<div style="display:flex;justify-content:space-between;align-items:center">
+  <h2>SafePaws Admin V2.2</h2>
+  <button id="logoutBtn" style="width:auto;background:#ef4444">Logout</button>
 </div>
-<script type="module">
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-  import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
-  import { getFirestore, collection, query, where, onSnapshot, doc, updateDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
-  const firebaseConfig = { apiKey: "AIzaSyBVaqhNCrgDlWGEVjXygszJUdQR_bpG7os", authDomain: "safepaws-batangas.firebaseapp.com", projectId: "safepaws-batangas", storageBucket: "safepaws-batangas.firebasestorage.app", messagingSenderId: "629904615191", appId: "1:629904615191:web:45f7148d65ba61a867f952" };
-  const app = initializeApp(firebaseConfig); const auth = getAuth(app); const db = getFirestore(app); const $ = id => document.getElementById(id);
-  const ADMIN_EMAIL = "gabinessheabert@gmail.com";
-  if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
-  window.showPage = (pageId) => {document.querySelectorAll('.page').forEach(p=>p.classList.remove('active')); $(pageId).classList.add('active'); document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active')); document.querySelector(`.nav-item[onclick="showPage('${pageId}')"]`).classList.add('active');}
-  onAuthStateChanged(auth, user => {if(!user){ $('authPage').classList.add('active'); $('mainApp').style.display='none'; return; } if(user.email !== ADMIN_EMAIL){ alert('Access Denied. Admins only.'); signOut(auth); return; } $('authPage').classList.remove('active'); $('mainApp').style.display='block'; loadDrivers(); loadVets(); loadGroomers(); loadEarnings();});
-  $('loginBtn').onclick = async () => { try{await signInWithEmailAndPassword(auth,$('loginEmail').value,$('loginPass').value);}catch(e){alert(e.message);}};
-  $('logoutBtn').onclick = () => signOut(auth);
-  window.loadDrivers = () => {const search = $('searchDriver').value.toLowerCase(); onSnapshot(collection(db,'drivers'),snap=>{ const filtered = snap.docs.filter(d=>{ const x=d.data(); return (x.name||'').toLowerCase().includes(search) || (x.plateNumber||'').toLowerCase().includes(search);}); $('driversTable tbody').innerHTML = filtered.map(d=>{ const x=d.data(); return `<tr><td>${x.name||''}</td><td>${x.plateNumber||''}</td><td><span class="status ${x.status}">${x.status}</span></td><td>${x.status==='pending'?`<button class="success" onclick="updateStatus('drivers','${d.id}','approved')">Approve</button><button class="danger" onclick="updateStatus('drivers','${d.id}','rejected')">Reject</button>`:''}</td></tr>`}).join('')||'<tr><td colspan=4>No drivers found</td></tr>';});}
-  window.loadVets = () => {const search = $('searchVet').value.toLowerCase(); onSnapshot(collection(db,'vets'),snap=>{ const filtered = snap.docs.filter(d=>{ const x=d.data(); return (x.clinicName||'').toLowerCase().includes(search) || (x.email||'').toLowerCase().includes(search);}); $('vetsTable tbody').innerHTML = filtered.map(d=>{ const x=d.data(); return `<tr><td>${x.clinicName||''}</td><td>${x.email||''}</td><td><span class="status ${x.status}">${x.status}</span></td><td>${x.status==='pending'?`<button class="success" onclick="updateStatus('vets','${d.id}','approved')">Approve</button>`:''}</td></tr>`}).join('')||'<tr><td colspan=4>No vets found</td></tr>';});}
-  window.loadGroomers = () => {const search = $('searchGroom').value.toLowerCase(); onSnapshot(collection(db,'groomers'),snap=>{ const filtered = snap.docs.filter(d=>{ const x=d.data(); return (x.shopName||'').toLowerCase().includes(search) || (x.email||'').toLowerCase().includes(search);}); $('groomersTable tbody').innerHTML = filtered.map(d=>{ const x=d.data(); return `<tr><td>${x.shopName||''}</td><td>${x.email||''}</td><td><span class="status ${x.status}">${x.status}</span></td><td>${x.status==='pending'?`<button class="success" onclick="updateStatus('groomers','${d.id}','approved')">Approve</button>`:''}</td></tr>`}).join('')||'<tr><td colspan=4>No groomers found</td></tr>';});}
-  window.updateStatus = async (col,id,status) => await updateDoc(doc(db,col,id),{status});
-  window.loadEarnings = () => {let del=0, vet=0, groom=0; const from = $('dateFrom').value ? new Date($('dateFrom').value) : null; const to = $('dateTo').value ? new Date($('dateTo').value) : null; const filterByDate = (snap, dateField, feeField, rate) => { return snap.docs.filter(d=>{ const data = d.data(); const dDate = data[dateField]?.toDate ? data[dateField].toDate() : new Date(data[dateField]); if(from && dDate < from) return false; if(to && dDate > to) return false; return data.status === 'completed';}).reduce((s,d)=>s+(d.data()[feeField]||0)*rate,0);}; onSnapshot(collection(db,'bookings'),snap=>{ del=filterByDate(snap,'createdAt','estimatedFare',0.15); updateTotal(); }); onSnapshot(collection(db,'vet_bookings'),snap=>{ vet=filterByDate(snap,'createdAt','fee',0.20); updateTotal(); }); onSnapshot(collection(db,'grooming_bookings'),snap=>{ groom=filterByDate(snap,'createdAt','fee',0.25); updateTotal(); }); function updateTotal(){$('earnDelivery').textContent=`₱${del.toFixed(2)}`; $('earnVet').textContent=`₱${vet.toFixed(2)}`; $('earnGroom').textContent=`₱${groom.toFixed(2)}`; $('earnTotal').textContent=`₱${(del+vet+groom).toFixed(2)}`;}}
-  window.addEventListener('load', () => {setTimeout(() => {document.getElementById('loader').classList.add('hide');}, 1500); });
-</script>
-</body>
-</html>
+
+<div id="driversTab" class="tab-content active">
+  <h2>🚚 Drivers</h2>
+  <div class="sub-tab-bar"><button class="sub-tab-btn active" data-sub="driversNew">New</button><button class="sub-tab-btn" data-sub="driversApproved">Approved</button></div>
+  <table id="driversNew" class="sub-content active"><thead><tr><th>Name</th><th>Plate</th><th>Status</th><th>Action</th></tr></thead><tbody id="driversNewBody"></tbody></table>
+  <table id="driversApproved" class="sub-content"><thead><tr><th>Name</th><th>Plate</th><th>Status</th><th>Action</th></tr></thead><tbody id="driversApprovedBody"></tbody></table>
+</div>
+
+<div id="vetsTab" class="tab-content">
+  <h2>🏥 Vets</h2>
+  <div class="sub-tab-bar"><button class="sub-tab-btn active" data-sub="vetsNew">New</button><button class="sub-tab-btn" data-sub="vetsApproved">Approved</button></div>
+  <table id="vetsNew" class="sub-content active"><thead><tr><th>Name</th><th>Plate</th><th>Status</th><th>Action</th></tr></thead><tbody id="vetsNewBody"></tbody></table>
+  <table id="vetsApproved" class="sub-content"><thead><tr><th>Name</th><th>Plate</th><th>Status</th><th>Action</th></tr></thead><tbody id="vetsApprovedBody"></tbody></table>
+</div>
+
+<div id="groomTab" class="tab-content">
+  <h2>✂️ Groom</h2>
+  <div class="sub-tab-bar"><button class="sub-tab-btn active" data-sub="groomNew">New</button><button class="sub-tab-btn" data-sub="groomApproved">Approved</button></div>
+  <table id="groomNew" class="sub-content active"><thead><tr><th>Name</th><th>Plate</th><th>Status</th><th>Action</th></tr></thead><tbody id="groomNewBody"></tbody></table>
+  <table id="groomApproved" class="sub-content"><thead><tr><th>Name</th><th>Plate</th><th>Status</th><th>Action</th></tr></thead><tbody id="groomApprovedBody"></tbody></table>
+</div>
+
+<div id="earningsTab" class="tab-content">
+  <h2>💰 Earn</h2>
+  <table><thead><tr><th>Amount</th><th>Name</th></tr></thead><tbody id="earningsBody"></tbody></table>
+</div>
+
+<div class="tab-bar">
+  <button class="tab-btn active" data-tab="driversTab">🚚 Drivers</button>
+  <button class="tab-btn" data-tab="vetsTab">🏥 Vets</button>
+  <button class="tab-btn" data-tab="groomTab">✂️ Groom</button>
+  <button class="tab-btn" data-tab="earningsTab">💰 Earn</button>
+</div>
+</div>
+</body></html>
