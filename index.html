@@ -1,153 +1,182 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>SafePaws Admin V2.2</title>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>SafePaws Admin V2.3</title>
+<style>
+*{box-sizing:border-box}body{margin:0;font-family:'Segoe UI',Arial;background:#0f172a;color:#e5e7eb}
+/* LOGIN SCREEN */
+#loginScreen{display:flex;align-items:center;justify-content:center;height:100vh;background:linear-gradient(135deg,#0f172a,#1e293b)}
+.login-card{background:#1e293b;padding:32px;border-radius:16px;box-shadow:0 8px 24px #0005;width:90%;max-width:380px;border:1px solid #334155}
+.login-card h1{display:flex;align-items:center;gap:10px;font-size:24px;margin:0 0 20px;justify-content:center}
+.login-card input{width:100%;padding:14px;margin:8px 0;border-radius:10px;border:1px solid #334155;background:#0f172a;color:#e5e7eb;font-size:16px}
+.login-card button{width:100%;padding:14px;margin-top:12px;border:0;border-radius:10px;background:#38bdf8;color:#0f172a;font-weight:bold;font-size:16px;cursor:pointer}
+/* APP SCREEN */
+#appScreen{display:none}
+header{display:flex;justify-content:space-between;align-items:center;padding:16px 20px;background:#1e293b;border-bottom:1px solid #334155;position:sticky;top:0}
+header h1{display:flex;align-items:center;gap:8px;font-size:20px;margin:0}
+.logout{background:#dc2626;border:0;color:#fff;padding:8px 14px;border-radius:8px;font-weight:bold;cursor:pointer}
+main{padding:20px;padding-bottom:80px}
+.card{background:#1e293b;border:1px solid #334155;border-radius:12px;padding:16px;margin-bottom:12px}
+table{width:100%;border-collapse:collapse;font-size:14px}
+th,td{padding:12px;text-align:left;border-bottom:1px solid #334155}
+th{color:#94a3b8;font-weight:600;font-size:12px;text-transform:uppercase}
+.badge{padding:4px 10px;border-radius:20px;font-size:12px;font-weight:bold}
+.pending{background:#f59e0b;color:#000}.approved{background:#16a34a}.rejected{background:#dc2626}
+.btn{padding:8px 12px;border:0;border-radius:8px;font-weight:bold;cursor:pointer;margin-right:6px}
+.btn-green{background:#16a34a;color:#fff}.btn-red{background:#dc2626;color:#fff}
+nav{position:fixed;bottom:0;left:0;right:0;background:#1e293b;border-top:1px solid #334155;display:flex}
+nav button{flex:1;padding:12px 4px;background:0;border:0;color:#94a3b8;font-size:12px;cursor:pointer}
+nav button.active{color:#38bdf8;background:#0f172a}
+.tab{display:none}.tab.active{display:block}
+.notif-dot{background:#dc2626;color:#fff;border-radius:50%;padding:2px 6px;font-size:10px;margin-left:4px;vertical-align:top}
+</style>
+</head>
+<body>
+
+<!-- SCREEN 1: LOGIN -->
+<div id="loginScreen">
+  <div class="login-card">
+    <h1>🛡️ SafePaws Admin</h1>
+    <input id="email" type="email" placeholder="Email" value="gabinessheabert@gmail.com">
+    <input id="pass" type="password" placeholder="Password">
+    <button onclick="login()">Login</button>
+  </div>
+</div>
+
+<!-- SCREEN 2: APP -->
+<div id="appScreen">
+<header>
+  <h1 id="headerTitle">🚚 Drivers</h1>
+  <button class="logout" onclick="logout()">Logout</button>
+</header>
+
+<main>
+  <div id="driversTab" class="tab active">
+    <div class="card"><table><thead><tr><th>Name</th><th>Plate</th><th>Status</th><th>Action</th></tr></thead><tbody id="driversTable"></tbody></table></div>
+  </div>
+
+  <div id="vetsTab" class="tab">
+    <div class="card"><table><thead><tr><th>Clinic</th><th>License</th><th>Status</th><th>Action</th></tr></thead><tbody id="vetsTable"></tbody></table></div>
+  </div>
+
+  <div id="approvalTab" class="tab">
+    <div class="card">
+      <h3 style="margin-top:0">📝 Pending Applications</h3>
+      <div id="approvalList">Loading...</div>
+    </div>
+  </div>
+
+  <div id="groomTab" class="tab">
+    <div class="card"><table><thead><tr><th>Salon</th><th>License</th><th>Status</th><th>Action</th></tr></thead><tbody id="groomTable"></tbody></table></div>
+  </div>
+
+  <div id="earnTab" class="tab">
+    <div class="card"><h3>💰 Earnings Report</h3><p>Coming soon...</p></div>
+  </div>
+</main>
+
+<nav>
+  <button class="active" onclick="switchTab('driversTab',this,'🚚 Drivers')">🚚<br>Drivers</button>
+  <button onclick="switchTab('vetsTab',this,'🩺 Vets')">🩺<br>Vets</button>
+  <button onclick="switchTab('approvalTab',this,'📝 Approval')"><span style="position:relative">📝<span id="notifBadge" class="notif-dot" style="display:none">0</span></span><br>Approval</button>
+  <button onclick="switchTab('groomTab',this,'✂️ Groom')">✂️<br>Groom</button>
+  <button onclick="switchTab('earnTab',this,'💰 Earn')">💰<br>Earn</button>
+</nav>
+</div>
+
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-import { getFirestore, collection, onSnapshot, doc, updateDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import { getFirestore, collection, onSnapshot, doc, updateDoc, query, where, getDocs } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
-/* ========== FIREBASE CONFIG - GALING SA PIC MO ========== */
-const firebaseConfig = { 
-  apiKey: "AIzaSyBVaqhNCrgDlWGEVjXygszJUdQR_bpG7os", // <- DITO LANG BOI. PASTE MO API KEY MO
+// PALITAN MO TO NG FIREBASE CONFIG MO
+const firebaseConfig = {
+  apiKey: "AIzaSyBVaqhNCrgDlWGEVjXygszJUdQR_bpG7os",
   authDomain: "safepaws-batangas.firebaseapp.com",
   projectId: "safepaws-batangas",
   storageBucket: "safepaws-batangas.firebasestorage.app",
   messagingSenderId: "629904615191",
   appId: "1:629904615191:web:45f7148d65ba61a867f952"
 };
-/* ======================================================== */
-
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 
-/* ========== EMAIL MO DITO ========== */
-const ADMIN_EMAIL = "gabinessheabert@gmail.com"; // <- EMAIL MO DITO BOI
-/* =================================== */
-
-onAuthStateChanged(auth, user => { 
-  document.getElementById('loginDiv').style.display = user? 'none' : 'block'; 
-  document.getElementById('appDiv').style.display = user? 'block' : 'none'; 
-  if(user) loadData(); 
+onAuthStateChanged(auth,user=>{
+  if(user){document.getElementById('loginScreen').style.display='none';document.getElementById('appScreen').style.display='block';}
+  else{document.getElementById('loginScreen').style.display='flex';document.getElementById('appScreen').style.display='none';}
 });
 
-window.addEventListener('DOMContentLoaded', () => {
-  document.getElementById('email').value = ADMIN_EMAIL;
-});
-
-document.getElementById('loginBtn').onclick = () => signInWithEmailAndPassword(auth, document.getElementById('email').value, document.getElementById('pass').value).catch(e => alert(e.message));
-document.getElementById('logoutBtn').onclick = () => signOut(auth);
-
-document.querySelectorAll('.tab-btn').forEach(btn => btn.onclick = () => { 
-  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active')); 
-  btn.classList.add('active'); 
-  document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active')); 
-  document.getElementById(btn.dataset.tab).classList.add('active'); 
-});
-
-document.querySelectorAll('.sub-tab-btn').forEach(btn => btn.onclick = () => { 
-  const parent = btn.closest('.tab-content'); 
-  parent.querySelectorAll('.sub-tab-btn').forEach(b => b.classList.remove('active')); 
-  btn.classList.add('active'); 
-  parent.querySelectorAll('.sub-content').forEach(c => c.classList.remove('active')); 
-  parent.querySelector('#'+btn.dataset.sub).classList.add('active'); 
-});
-
-function driverRow(d) { return `<tr><td>${d.name||''}</td><td>${d.plateNumber||'-'}</td><td>${d.status}</td><td>${d.status==='pending'?`<button class="approve" data-id="${d.id}">Approve</button> <button class="reject" data-id="${d.id}">Reject</button>`:`<button class="reject" data-id="${d.id}">Deactivate</button>`}</td></tr>`; }
-function vetRow(d) { return `<tr><td>${d.clinicName||''}</td><td>-</td><td>${d.status}</td><td>${d.status==='pending'?`<button class="approve" data-id="${d.id}" data-col="vets">Approve</button> <button class="reject" data-id="${d.id}" data-col="vets">Reject</button>`:`<button class="reject" data-id="${d.id}" data-col="vets">Deactivate</button>`}</td></tr>`; }
-function groomRow(d) { return `<tr><td>${d.shopName||''}</td><td>-</td><td>${d.status}</td><td>${d.status==='pending'?`<button class="approve" data-id="${d.id}" data-col="groomers">Approve</button> <button class="reject" data-id="${d.id}" data-col="groomers">Reject</button>`:`<button class="reject" data-id="${d.id}" data-col="groomers">Deactivate</button>`}</td></tr>`; }
-
-function loadData() {
-  onSnapshot(collection(db, "drivers"), snap => {
-    document.getElementById('driversNewBody').innerHTML = snap.docs.filter(d=>d.data().status==='pending').map(d=>driverRow({id:d.id,...d.data()})).join('') || '<tr><td colspan="4">No new drivers</td></tr>';
-    document.getElementById('driversApprovedBody').innerHTML = snap.docs.filter(d=>d.data().status==='approved').map(d=>driverRow({id:d.id,...d.data()})).join('') || '<tr><td colspan="4">No approved drivers</td></tr>';
-  });
-  onSnapshot(collection(db, "vets"), snap => {
-    document.getElementById('vetsNewBody').innerHTML = snap.docs.filter(d=>d.data().status==='pending').map(d=>vetRow({id:d.id,...d.data()})).join('') || '<tr><td colspan="4">No new vets</td></tr>';
-    document.getElementById('vetsApprovedBody').innerHTML = snap.docs.filter(d=>d.data().status==='approved').map(d=>vetRow({id:d.id,...d.data()})).join('') || '<tr><td colspan="4">No approved vets</td></tr>';
-  });
-  onSnapshot(collection(db, "groomers"), snap => {
-    document.getElementById('groomNewBody').innerHTML = snap.docs.filter(d=>d.data().status==='pending').map(d=>groomRow({id:d.id,...d.data()})).join('') || '<tr><td colspan="4">No new groomers</td></tr>';
-    document.getElementById('groomApprovedBody').innerHTML = snap.docs.filter(d=>d.data().status==='approved').map(d=>groomRow({id:d.id,...d.data()})).join('') || '<tr><td colspan="4">No approved groomers</td></tr>';
-  });
-  onSnapshot(collection(db, "earnings"), snap => { 
-    document.getElementById('earningsBody').innerHTML = snap.empty?'<tr><td colspan="2">No earnings</td></tr>':snap.docs.map(d=>`<tr><td>₱${d.data().amount}</td><td>${d.data().driverName||d.data().clinicName||d.data().shopName}</td></tr>`).join('') 
-  });
+async function login(){
+  const e=document.getElementById('email').value;
+  const p=document.getElementById('pass').value;
+  try{await signInWithEmailAndPassword(auth,e,p);}
+  catch(err){alert(err.message);}
 }
+window.login=login;
+window.logout=()=>signOut(auth);
 
-document.addEventListener('click', async e => {
-  if(e.target.classList.contains('approve')) await updateDoc(doc(db, 'drivers', e.target.dataset.id), {status: 'approved'});
-  if(e.target.classList.contains('reject') &&!e.target.dataset.col) await updateDoc(doc(db, 'drivers', e.target.dataset.id), {status: 'rejected'});
-  if(e.target.dataset.col) await updateDoc(doc(db, e.target.dataset.col, e.target.dataset.id), {status: e.target.classList.contains('approve')?'approved':'rejected'});
+function switchTab(id,btn,title){
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('nav button').forEach(b=>b.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  btn.classList.add('active');
+  document.getElementById('headerTitle').textContent=title;
+}
+window.switchTab=switchTab;
+
+// DRIVERS TAB
+onSnapshot(collection(db,'riders'),snap=>{
+  let html='';
+  snap.forEach(d=>{
+    const r=d.data();
+    html+=`<tr><td>${r.name||'-'}</td><td>${r.plate||'-'}</td><td><span class="badge ${r.status}">${r.status}</span></td><td>${r.status==='pending'?`<button class="btn btn-green" onclick="approve('${d.id}','riders')">Approve</button>`:''}</td></tr>`;
+  });
+  document.getElementById('driversTable').innerHTML=html||'<tr><td colspan=4>No drivers</td></tr>';
 });
+
+// VETS TAB
+onSnapshot(collection(db,'vets'),snap=>{
+  let html='';
+  snap.forEach(d=>{
+    const v=d.data();
+    html+=`<tr><td>${v.clinicName||v.name||'-'}</td><td>${v.license||'-'}</td><td><span class="badge ${v.status}">${v.status}</span></td><td>${v.status==='pending'?`<button class="btn btn-green" onclick="approve('${d.id}','vets')">Approve</button>`:''}</td></tr>`;
+  });
+  document.getElementById('vetsTable').innerHTML=html||'<tr><td colspan=4>No vets</td></tr>';
+});
+
+// GROOM TAB
+onSnapshot(collection(db,'groomers'),snap=>{
+  let html='';
+  snap.forEach(d=>{
+    const g=d.data();
+    html+=`<tr><td>${g.salonName||g.name||'-'}</td><td>${g.license||'-'}</td><td><span class="badge ${g.status}">${g.status}</span></td><td>${g.status==='pending'?`<button class="btn btn-green" onclick="approve('${d.id}','groomers')">Approve</button>`:''}</td></tr>`;
+  });
+  document.getElementById('groomTable').innerHTML=html||'<tr><td colspan=4>No groomers</td></tr>';
+});
+
+// APPROVAL TAB
+async function loadApproval(){
+  let html=''; let count=0;
+  const cols=[{col:'riders',role:'Rider',icon:'🚚'},{col:'vets',role:'Vet',icon:'🩺'},{col:'groomers',role:'Groomer',icon:'✂️'}];
+  for(const {col,role,icon} of cols){
+    const snap=await getDocs(query(collection(db,col), where("status","==","pending")));
+    count+=snap.size;
+    snap.forEach(d=>{
+      const u=d.data();
+      html+=`<div class="card">${icon} <b>${u.name||u.clinicName||u.salonName}</b> - ${u.email}<br><small>${role} | ${u.phone||''} ${u.plate||u.license? '| '+u.plate||u.license:''}</small><br><br><button class="btn btn-green" onclick="approve('${d.id}','${col}')">✅ Approve</button><button class="btn btn-red" onclick="reject('${d.id}','${col}')">❌ Reject</button></div>`;
+    });
+  }
+  document.getElementById('approvalList').innerHTML=html||'No pending applications';
+  const badge=document.getElementById('notifBadge');
+  badge.style.display=count>0?'inline':'none';
+  badge.textContent=count;
+}
+setInterval(loadApproval,3000);
+loadApproval();
+
+window.approve=async(id,col)=>{ await updateDoc(doc(db,col,id),{status:'approved'}); loadApproval(); }
+window.reject=async(id,col)=>{ await updateDoc(doc(db,col,id),{status:'rejected'}); loadApproval(); }
 </script>
-<style>
-body{font-family:system-ui;background:#0f1117;color:#e6e6e6;margin:0;padding:16px;padding-bottom:80px}
-table{width:100%;border-collapse:collapse;background:#1a1d24;border-radius:12px;overflow:hidden;margin-top:12px}
-th,td{padding:12px;text-align:left;border-bottom:1px solid #2a2f3a}
-th{background:#2a2f3a}
-input,button{padding:10px;margin:4px;border-radius:8px;border:1px solid #2a2f3a;background:#1a1d24;color:#e6e6e6}
-button{background:#4a5af9;border:0;font-weight:700;cursor:pointer}
-input[readonly]{background:#2a2f3a;color:#9aa0a6;cursor:not-allowed}
-.tab-bar{position:fixed;bottom:0;left:0;right:0;display:flex;background:#1a1d24;border-top:1px solid #2a2f3a}
-.tab-btn{flex:1;padding:14px;background:transparent;border:0;color:#9aa0a6;font-size:14px}
-.tab-btn.active{color:#4a5af9;font-weight:700}
-.tab-content{display:none}.tab-content.active{display:block}
-.approve{background:#22c55e}.reject{background:#ef4444}
-.sub-tab-bar{display:flex;gap:8px;margin:12px 0}
-.sub-tab-btn{flex:1;padding:10px;background:#1a1d24;border:1px solid #2a2f3a;border-radius:8px;font-size:14px}
-.sub-tab-btn.active{background:#4a5af9}
-.sub-content{display:none}.sub-content.active{display:block}
-</style>
-</head>
-<body>
-<div id="loginDiv">
-  <h2>Admin Login</h2>
-  <input id="email" type="email" placeholder="Email" readonly>
-  <input id="pass" type="password" placeholder="Password">
-  <button id="loginBtn">Login</button>
-</div>
-
-<div id="appDiv" style="display:none">
-<div style="display:flex;justify-content:space-between;align-items:center">
-  <h2>SafePaws Admin V2.2</h2>
-  <button id="logoutBtn" style="width:auto;background:#ef4444">Logout</button>
-</div>
-
-<div id="driversTab" class="tab-content active">
-  <h2>🚚 Drivers</h2>
-  <div class="sub-tab-bar"><button class="sub-tab-btn active" data-sub="driversNew">New</button><button class="sub-tab-btn" data-sub="driversApproved">Approved</button></div>
-  <table id="driversNew" class="sub-content active"><thead><tr><th>Name</th><th>Plate</th><th>Status</th><th>Action</th></tr></thead><tbody id="driversNewBody"></tbody></table>
-  <table id="driversApproved" class="sub-content"><thead><tr><th>Name</th><th>Plate</th><th>Status</th><th>Action</th></tr></thead><tbody id="driversApprovedBody"></tbody></table>
-</div>
-
-<div id="vetsTab" class="tab-content">
-  <h2>🏥 Vets</h2>
-  <div class="sub-tab-bar"><button class="sub-tab-btn active" data-sub="vetsNew">New</button><button class="sub-tab-btn" data-sub="vetsApproved">Approved</button></div>
-  <table id="vetsNew" class="sub-content active"><thead><tr><th>Name</th><th>Plate</th><th>Status</th><th>Action</th></tr></thead><tbody id="vetsNewBody"></tbody></table>
-  <table id="vetsApproved" class="sub-content"><thead><tr><th>Name</th><th>Plate</th><th>Status</th><th>Action</th></tr></thead><tbody id="vetsApprovedBody"></tbody></table>
-</div>
-
-<div id="groomTab" class="tab-content">
-  <h2>✂️ Groom</h2>
-  <div class="sub-tab-bar"><button class="sub-tab-btn active" data-sub="groomNew">New</button><button class="sub-tab-btn" data-sub="groomApproved">Approved</button></div>
-  <table id="groomNew" class="sub-content active"><thead><tr><th>Name</th><th>Plate</th><th>Status</th><th>Action</th></tr></thead><tbody id="groomNewBody"></tbody></table>
-  <table id="groomApproved" class="sub-content"><thead><tr><th>Name</th><th>Plate</th><th>Status</th><th>Action</th></tr></thead><tbody id="groomApprovedBody"></tbody></table>
-</div>
-
-<div id="earningsTab" class="tab-content">
-  <h2>💰 Earn</h2>
-  <table><thead><tr><th>Amount</th><th>Name</th></tr></thead><tbody id="earningsBody"></tbody></table>
-</div>
-
-<div class="tab-bar">
-  <button class="tab-btn active" data-tab="driversTab">🚚 Drivers</button>
-  <button class="tab-btn" data-tab="vetsTab">🏥 Vets</button>
-  <button class="tab-btn" data-tab="groomTab">✂️ Groom</button>
-  <button class="tab-btn" data-tab="earningsTab">💰 Earn</button>
-</div>
-</div>
 </body></html>
